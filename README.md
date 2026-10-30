@@ -7,7 +7,7 @@
 </p>
 
 <p align="center">
-  <a href="https://breast-cancer-classification-kbctfhvtuetb8wz6yz8fdz.streamlit.app/">
+  <a href="https://breast-cancer-classification-aps.streamlit.app/">
     <img src="https://img.shields.io/badge/🚀_Live_Demo-Launch_Application-FF4B4B?style=for-the-badge" alt="Live Demo">
   </a>
   <a href="https://github.com/aiexploregroup-source/breast-cancer-classification-aps">
@@ -162,7 +162,7 @@ breast-cancer-classification-aps/
 Experience the project through its deployed Streamlit application.
 
 <p align="center">
-  <a href="https://breast-cancer-classification-kbctfhvtuetb8wz6yz8fdz.streamlit.app/">
+  <a href="https://breast-cancer-classification-aps.streamlit.app/">
     <img src="https://img.shields.io/badge/OPEN_BREAST_SCAN_AI-Visit_Live_Application-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white" alt="Open Live Application">
   </a>
 </p>
