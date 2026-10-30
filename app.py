@@ -5,141 +5,141 @@ from PIL import Image
 import gdown
 import os
 
-\# 🔹 Replace with your actual Google Drive File ID
+# 🔹 Replace with your actual Google Drive File ID
 FILE_ID = "124Fo29-Vt7UVeCLdRnJl75dZda3wRn9X"  # <-- Update with your actual ID
-URL = f"[https://drive.google.com/uc?export=download&id={FILE_ID](https://drive.google.com/uc?export=download\&id={FILE_ID)}"
+URL = f"https://drive.google.com/uc?export=download&id={FILE_ID}"
 OUTPUT_PATH = "model.h5"
 
-\# 🔹 Function to download and load the model
+# 🔹 Function to download and load the model
 @st.cache_resource
 def load_model():
-&#x20;   if not os.path.exists(OUTPUT_PATH):  # Check if model already exists
-&#x20;       st.write("📥 Downloading model...")
-&#x20;       try:
-&#x20;           gdown.download(URL, OUTPUT_PATH, quiet=False)
-&#x20;           st.write("✅ Model downloaded successfully!")
-&#x20;       except Exception as e:
-&#x20;           st.error(f"❌ Model download failed: {e}")
-&#x20;           return None
+    if not os.path.exists(OUTPUT_PATH):  # Check if model already exists
+        st.write("📥 Downloading model...")
+        try:
+            gdown.download(URL, OUTPUT_PATH, quiet=False)
+            st.write("✅ Model downloaded successfully!")
+        except Exception as e:
+            st.error(f"❌ Model download failed: {e}")
+            return None
 
-&#x20;   if os.path.exists(OUTPUT_PATH):
-&#x20;       model = tf.keras.models.load_model(OUTPUT_PATH)
-&#x20;       st.write(f"✅ Model loaded! Expected input shape: {model.input_shape}")
-&#x20;       return model
-&#x20;   else:
-&#x20;       st.error("❌ Model file not found after download.")
-&#x20;       return None
+    if os.path.exists(OUTPUT_PATH):
+        model = tf.keras.models.load_model(OUTPUT_PATH)
+        st.write(f"✅ Model loaded! Expected input shape: {model.input_shape}")
+        return model
+    else:
+        st.error("❌ Model file not found after download.")
+        return None
 
-\# 🔹 Load the trained model
+# 🔹 Load the trained model
 model = load_model()
 if model is None:
-&#x20;   st.stop()
+    st.stop()
 
-\# 🔹 Define class labels
+# 🔹 Define class labels
 CLASS_NAMES = ["Benign", "Malignant"]
 
-\# 🔹 Function to preprocess image
+# 🔹 Function to preprocess image
 def preprocess_image(image):
-&#x20;   image = image.convert("RGB")  # Ensure 3 color channels
-&#x20;   image = image.resize((48, 48))  # Resize to match model input (48x48 pixels)
-&#x20;   image = np.array(image, dtype=np.float32) / 255.0  # Normalize pixel values (0-1)
-&#x20;   image = np.expand_dims(image, axis=0)  # Add batch dimension (1, 48, 48, 3)
-&#x20;  &#x20;
-&#x20;   return image
+    image = image.convert("RGB")  # Ensure 3 color channels
+    image = image.resize((48, 48))  # Resize to match model input (48x48 pixels)
+    image = np.array(image, dtype=np.float32) / 255.0  # Normalize pixel values (0-1)
+    image = np.expand_dims(image, axis=0)  # Add batch dimension (1, 48, 48, 3)
+    
+    return image
 
-\# 🔹 Sidebar Navigation
+# 🔹 Sidebar Navigation
 st.sidebar.title("🔍 Navigation")
 st.sidebar.write("Use the menu below to navigate.")
 page = st.sidebar.radio("Select a Page:", ["🏠 Home", "📤 Upload & Predict", "ℹ️ About"])
 
 if page == "🏠 Home":
-&#x20;   st.title("🏠 Breast Cancer Classifier")
-&#x20;   st.write("""
-&#x20;   Welcome! This app classifies breast cancer cell images as \*\*Benign\*\* or \*\*Malignant\*\*.
-&#x20;  &#x20;
-&#x20;   🔹 \*\*How It Works:\*\* &#x20;
-&#x20;   \- Upload an image of a breast cancer cell &#x20;
-&#x20;   \- The model analyzes the image &#x20;
-&#x20;   \- It predicts if the cell is \*\*Benign\*\* or \*\*Malignant\*\*
-&#x20;  &#x20;
-&#x20;   👉 Click on "Upload & Predict" in the sidebar to start!
-&#x20;   """)
+    st.title("🏠 Breast Cancer Classifier")
+    st.write("""
+    Welcome! This app classifies breast cancer cell images as **Benign** or **Malignant**.
+    
+    🔹 **How It Works:**  
+    - Upload an image of a breast cancer cell  
+    - The model analyzes the image  
+    - It predicts if the cell is **Benign** or **Malignant**
+    
+    👉 Click on "Upload & Predict" in the sidebar to start!
+    """)
 
 elif page == "📤 Upload & Predict":
-&#x20;   st.title("📤 Upload & Predict")
+    st.title("📤 Upload & Predict")
 
-&#x20;   \# 🔹 File uploader
-&#x20;   uploaded_file = st.file_uploader("Upload an Image", type=["jpg", "png", "jpeg"])
+    # 🔹 File uploader
+    uploaded_file = st.file_uploader("Upload an Image", type=["jpg", "png", "jpeg"])
 
-&#x20;   if uploaded_file:
-&#x20;       col1, col2 = st.columns(2)
-&#x20;      &#x20;
-&#x20;       with col1:
-&#x20;           image = Image.open(uploaded_file)
-&#x20;           st.image(image, caption="🖼 Uploaded Image", use_column_width=True)
+    if uploaded_file:
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            image = Image.open(uploaded_file)
+            st.image(image, caption="🖼 Uploaded Image", use_column_width=True)
 
-&#x20;       with col2:
-&#x20;           st.write("✅ \*\*Image uploaded successfully!\*\*")
-&#x20;           st.write(f"📏 \*\*Image Size:\*\* {image.size}")
+        with col2:
+            st.write("✅ **Image uploaded successfully!**")
+            st.write(f"📏 **Image Size:** {image.size}")
 
-&#x20;       \# Preprocess the image
-&#x20;       processed_image = preprocess_image(image)
+        # Preprocess the image
+        processed_image = preprocess_image(image)
 
-&#x20;       \# Debugging: Print shape before prediction
-&#x20;       st.write(f"📌 \*\*Processed Image Shape:\*\* {processed_image.shape}")
+        # Debugging: Print shape before prediction
+        st.write(f"📌 **Processed Image Shape:** {processed_image.shape}")
 
-&#x20;       \# Prediction with progress bar
-&#x20;       with st.spinner("🧐 Analyzing image... Please wait..."):
-&#x20;           progress_bar = st.progress(0)
-&#x20;           for percent in range(100):
-&#x20;               progress_bar.progress(percent + 1)
-&#x20;          &#x20;
-&#x20;           prediction = model.predict(processed_image)
-&#x20;           class_index = np.argmax(prediction)
-&#x20;           confidence = np.max(prediction) \* 100
+        # Prediction with progress bar
+        with st.spinner("🧐 Analyzing image... Please wait..."):
+            progress_bar = st.progress(0)
+            for percent in range(100):
+                progress_bar.progress(percent + 1)
+            
+            prediction = model.predict(processed_image)
+            class_index = np.argmax(prediction)
+            confidence = np.max(prediction) * 100
 
-&#x20;       \# Display results with emojis
-&#x20;       result = "🟢 \*\*Benign\*\* 😊" if class_index == 0 else "🔴 \*\*Malignant\*\* 😔"
-&#x20;       st.subheader(f"📌 Prediction: {result}")
-&#x20;       st.write(f"✅ \*\*Confidence: {confidence:.2f}%\*\*")
+        # Display results with emojis
+        result = "🟢 **Benign** 😊" if class_index == 0 else "🔴 **Malignant** 😔"
+        st.subheader(f"📌 Prediction: {result}")
+        st.write(f"✅ **Confidence: {confidence:.2f}%**")
 
-&#x20;       \# Display additional message based on prediction
-&#x20;       if class_index == 0:  # Benign
-&#x20;           st.success("🟢 No cancer detected. Live happy! 😊")
-&#x20;       else:  # Malignant
-&#x20;           st.error("🔴 Cancer detected. Please reach out to a doctor immediately. 🚨")
+        # Display additional message based on prediction
+        if class_index == 0:  # Benign
+            st.success("🟢 No cancer detected. Live happy! 😊")
+        else:  # Malignant
+            st.error("🔴 Cancer detected. Please reach out to a doctor immediately. 🚨")
 
 elif page == "ℹ️ About":
-&#x20;   st.title("ℹ️ About This Project")
-&#x20;   st.write("""
-&#x20;   \*\*Breast Cancer Classification App\*\* &#x20;
-&#x20;   \- This application uses a \*\*Convolutional Neural Network (CNN)\*\* to classify breast cancer cell images. &#x20;
-&#x20;   \- It was trained using a \*\*Custom CNN model\*\* with TensorFlow & Keras. &#x20;
-&#x20;   \- The app is deployed using \*\*Streamlit Cloud\*\*. &#x20;
-&#x20;    &#x20;
-&#x20;   \*\*👩‍💻 Developed by:\*\* Team Breast Scan AI from APS LBS Marg , Lucknow&#x20;
-&#x20;   \*\*📅 Year:\*\* 2026 &#x20;
-&#x20;   \*\*🔗 GitHub:\*\* [https://github.com/aiexploregroup-source/breast-cancer-classification-aps](https://github.com/aiexploregroup-source/breast-cancer-classification-aps) &#x20;
-&#x20;   """)
+    st.title("ℹ️ About This Project")
+    st.write("""
+    **Breast Cancer Classification App**  
+    - This application uses a **Convolutional Neural Network (CNN)** to classify breast cancer cell images.  
+    - It was trained using a **Custom CNN model** with TensorFlow & Keras.  
+    - The app is deployed using **Streamlit Cloud**.  
+      
+    **👩‍💻 Developed by:** Team Breast Scan AI from APS LBS Marg , Lucknow 
+    **📅 Year:** 2026  
+    **🔗 GitHub:** https://github.com/aiexploregroup-source/breast-cancer-classification-aps  
+    """)
 
-\# 🔹 Custom Footer
-
-&#x20;   """
-&#x20;   \<style>
-&#x20;   .footer {
-&#x20;       position: fixed;
-&#x20;       bottom: 0;
-&#x20;       left: 0;
-&#x20;       width: 100%;
-&#x20;       background-color: #1c1c1e;
-&#x20;       text-align: center;
-&#x20;       padding: 10px;
-&#x20;       color: white;
-&#x20;   }
-&#x20;   \</style>
-&#x20;   \<div class="footer">
-&#x20;       \<p>© 2026 Breast Cancer Classifier | Developed by Team Breast Scan AI \</p>
-&#x20;   \</div>
-&#x20;   """,
-&#x20;   unsafe_allow_html=True
+# 🔹 Custom Footer
+st.markdown(
+    """
+    <style>
+    .footer {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        width: 100%;
+        background-color: #1c1c1e;
+        text-align: center;
+        padding: 10px;
+        color: white;
+    }
+    </style>
+    <div class="footer">
+        <p>© 2026 Breast Cancer Classifier | Developed by Team Breast Scan AI </p>
+    </div>
+    """,
+    unsafe_allow_html=True
 )
