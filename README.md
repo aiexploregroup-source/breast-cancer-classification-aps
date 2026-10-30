@@ -1,80 +1,320 @@
-<<<<<<< HEAD
-# Breast Cancer Image Classification
+# 🧬 Breast Scan AI
+### Deep Learning-Based Breast Cancer Histopathological Image Classification
 
-A collaborative college project by **Team Breast Scan AI **, completed in **2026**, demonstrating image preprocessing and trained-model inference through a Streamlit web application.
+<p align="center">
+  <strong>Team Breast Scan AI</strong><br>
+  An AI-powered academic project exploring deep learning for histopathological image classification.
+</p>
 
-[Live demo](https://breast-cancer-classification-kbctfhvtuetb8wz6yz8fdz.streamlit.app/) | [Repository](https://github.com/aiexploregroup-source/breast-cancer-classification-aps/)
+<p align="center">
+  <a href="https://breast-cancer-classification-kbctfhvtuetb8wz6yz8fdz.streamlit.app/">
+    <img src="https://img.shields.io/badge/🚀_Live_Demo-Launch_Application-FF4B4B?style=for-the-badge" alt="Live Demo">
+  </a>
+  <a href="https://github.com/aiexploregroup-source/breast-cancer-classification-aps">
+    <img src="https://img.shields.io/badge/GitHub-Repository-181717?style=for-the-badge&logo=github" alt="GitHub Repository">
+  </a>
+</p>
 
-> **Educational demonstration only.** This project is not a validated medical device and must not be used for screening, diagnosis, treatment decisions, or reassurance about a person's health. The application's diagnostic-sounding messages should be interpreted only as model-output labels.
-Breast_Cancer_Detection
-🎯 Automated Breast Cancer Cell Detection using Deep Learning This capstone project leverages deep learning models to accurately classify breast cancer histopathological images. Trained on a publicly available dataset and deployed using Streamlit, the application offers a clean, user-friendly interface for real-time cancer prediction.
+<p align="center">
+  <img src="https://img.shields.io/badge/Python-3.10+-3776AB?style=flat-square&logo=python&logoColor=white">
+  <img src="https://img.shields.io/badge/Deep_Learning-CNN%20%7C%20ResNet50-orange?style=flat-square">
+  <img src="https://img.shields.io/badge/Framework-TensorFlow-FF6F00?style=flat-square&logo=tensorflow&logoColor=white">
+  <img src="https://img.shields.io/badge/Interface-Streamlit-FF4B4B?style=flat-square&logo=streamlit&logoColor=white">
+  <img src="https://img.shields.io/badge/Project-2026--27-blue?style=flat-square">
+  <img src="https://img.shields.io/badge/License-MIT-green?style=flat-square">
+</p>
 
-🧠 Breast Cancer Cell Classification using Deep Learning
-A deep learning-based web application that detects breast cancer from histopathological images using a custom CNN and ResNet50 model. This is my capstone project at GITAM School of Technology, deployed via Streamlit.
+---
 
-🚀 Live Demo
-👉 Click here to try the deployed app
+## 🔬 Overview
 
-📌 Features
-🔬 Classifies histopathological images as Benign or Malignant
-🧠 Trained using both a custom CNN and ResNet50 (transfer learning)
-🖼️ Accepts image uploads and displays predictions instantly
-🌐 Hosted using Streamlit — serverless and fast
-📊 Built with simplicity and accessibility in mind
-📁 Project Structure
-📁 Detect_BreastCancer.ipynb # Data loading, preprocessing, evaluation 📁 train_CustomModel_32_conv_20k.ipynb # CNN model training (32 conv layers, 20k steps) 📁 train_ResNet50_32_20k.ipynb # ResNet50 training notebook 📁 app.py # Streamlit app code (UI + model inference) 📁 requirements.txt # Dependencies for running the app
+**Breast Scan AI** is a collaborative academic project that demonstrates the application of Deep Learning and Computer Vision in the classification of breast cancer histopathological images.
 
-🛠️ Tech Stack
-Python 3.10+
-TensorFlow / Keras
-OpenCV & NumPy
-Matplotlib, Seaborn (visualization)
-Streamlit (for web UI and deployment)
-🧪 Dataset
-BreaKHis: Breast Cancer Histopathological Image Classification Dataset
-Includes 7,909 images across 8 tumor subclasses under 4 magnification levels (40X, 100X, 200X, 400X)
-Classes: Benign and Malignant
-Source: Kaggle - BreaKHis Dataset
-📈 Model Performance
-Model	Accuracy	Notes
-Custom CNN	~92%	32 Convolutional layers, trained for 20,000 steps
-ResNet50	~95%	Transfer learning model with fine-tuning
-👨‍🎓 Academic Context
-🎓 Capstone Project
-🏫 Army Public School
-👨‍🏫 Guided by Mrs. Seema Agarwal
-📆 AI Batch 2026 - 27 AEY PUBLIC SCHOOL , LBS MARG , LUCKNOW 
-👨‍💻 Developed by Chowda Reddy N and N Swaroopa
-🧑‍💻 How to Run Locally
-Clone the repository
-git clone (https://github.com/aiexploregroup-source/breast-cancer-classification-aps.git)
-cd breast-cancer-classification
-Create a virtual environment (optional but recommended)
+The project explores two neural network architectures:
+
+- **Custom Convolutional Neural Network (CNN)**
+- **ResNet50 with Transfer Learning**
+
+Using the publicly available **BreaKHis dataset**, the models are trained to distinguish between two image classes:
+
+- 🟢 **Benign:** Non-malignant tissue images.
+- 🔴 **Malignant:** Malignant tissue images.
+
+A Streamlit-based web application provides an interactive interface where users can upload histopathological images and view the corresponding model predictions.
+
+> **Important Medical Disclaimer**
+>
+> This project is developed strictly for educational and research demonstration purposes. It is not a clinically validated medical device and must not be used for medical screening, diagnosis, treatment decisions, or reassurance about an individual's health. Model predictions are experimental outputs, not medical conclusions.
+
+---
+
+## ✨ Key Features
+
+| Feature | Description |
+|---|---|
+| 🧠 Deep Learning | Implements CNN and ResNet50 architectures. |
+| 🔬 Image Classification | Demonstrates Benign vs. Malignant image classification. |
+| 🖼️ Image Upload | Allows users to upload histopathological images. |
+| ⚡ Model Inference | Generates predictions through trained models. |
+| 🌐 Web Application | Interactive interface built using Streamlit. |
+| 📊 Model Evaluation | Explores model performance and classification accuracy. |
+| ☁️ Online Deployment | Accessible through a browser without local installation. |
+
+---
+
+## 🧠 Deep Learning Architectures
+
+The project explores two approaches to image classification.
+
+### 1. Custom CNN
+
+A custom Convolutional Neural Network designed to learn visual features from histopathological images.
+
+- Multiple convolutional layers.
+- Automated feature extraction.
+- Image classification through learned representations.
+- Training using the BreaKHis dataset.
+
+### 2. ResNet50
+
+A deep residual network that uses transfer learning to leverage previously learned visual representations.
+
+- Pre-trained ResNet50 architecture.
+- Residual connections.
+- Transfer learning for image classification.
+- Fine-tuning for the target classification task.
+
+### 📈 Model Performance
+
+The following are the reported project results. They should be interpreted as experimental results rather than independently validated clinical performance.
+
+| Model | Reported Accuracy | Approach |
+|---|---:|---|
+| Custom CNN | ~92% | Custom deep learning architecture |
+| ResNet50 | ~95% | Transfer learning and fine-tuning |
+
+**Note:** Accuracy alone does not establish clinical reliability. Dataset separation, class-wise precision, recall, F1-score, sensitivity, specificity, and independent validation are important when evaluating classification models.
+
+---
+
+## 🗂️ Dataset
+
+### BreaKHis: Breast Cancer Histopathological Image Dataset
+
+The project uses the publicly available **BreaKHis dataset**, which contains histopathological images of breast tumor tissue.
+
+| Dataset Information | Details |
+|---|---|
+| Dataset | BreaKHis |
+| Total Images | 7,909 |
+| Classification | Benign and Malignant |
+| Magnification Levels | 40X, 100X, 200X, 400X |
+| Image Type | Histopathological images |
+| Source | Kaggle |
+
+The dataset contains eight tumor subclasses grouped into two major categories: benign and malignant.
+
+---
+
+## 🛠️ Technology Stack
+
+| Technology | Purpose |
+|---|---|
+| Python | Core programming language |
+| TensorFlow / Keras | Deep learning and model development |
+| OpenCV | Image processing |
+| NumPy | Numerical operations |
+| Matplotlib | Data visualization |
+| Seaborn | Statistical visualization |
+| Streamlit | Web application development |
+| PIL / Pillow | Image handling |
+
+---
+
+## 📁 Project Structure
+
+```text
+breast-cancer-classification-aps/
+│
+├── 📓 Detect_BreastCancer.ipynb
+│   └── Dataset loading, preprocessing and evaluation
+│
+├── 📓 train_CustomModel_32_conv_20k.ipynb
+│   └── Custom CNN model training
+│
+├── 📓 train_ResNet50_32_20k.ipynb
+│   └── ResNet50 training and fine-tuning
+│
+├── 🐍 app.py
+│   └── Streamlit application and model inference
+│
+├── 📄 requirements.txt
+│   └── Project dependencies
+│
+└── 📄 README.md
+    └── Project documentation
+```
+
+---
+
+## 🚀 Live Application
+
+Experience the project through its deployed Streamlit application.
+
+<p align="center">
+  <a href="https://breast-cancer-classification-kbctfhvtuetb8wz6yz8fdz.streamlit.app/">
+    <img src="https://img.shields.io/badge/OPEN_BREAST_SCAN_AI-Visit_Live_Application-FF4B4B?style=for-the-badge&logo=streamlit&logoColor=white" alt="Open Live Application">
+  </a>
+</p>
+
+**Application capabilities:**
+1. Open the deployed application.
+2. Upload a histopathological image.
+3. Allow the application to process the uploaded image.
+4. View the model-generated classification output.
+
+*The application is an educational demonstration, not a medical diagnostic service.*
+
+---
+
+## 💻 Installation & Local Setup
+
+Want to explore the project on your own computer? Follow these steps.
+
+### Prerequisites
+
+- Python 3.10 or later
+- Git
+- pip package manager
+
+### Step 1: Clone the Repository
+
+```bash
+git clone https://github.com/aiexploregroup-source/breast-cancer-classification-aps.git
+```
+
+### Step 2: Navigate to the Project Directory
+
+```bash
+cd breast-cancer-classification-aps
+```
+
+### Step 3: Create a Virtual Environment
+
+```bash
 python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-Install dependencies
-pip install -r requirements.txt
-Run the Streamlit app
-streamlit run app.py
-📦 requirements.txt
+```
 
+Activate it on Windows:
+
+```bash
+venv\Scripts\activate
+```
+
+Activate it on macOS/Linux:
+
+```bash
+source venv/bin/activate
+```
+
+### Step 4: Install Dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+### Step 5: Launch the Application
+
+```bash
+streamlit run app.py
+```
+
+The application should open in your default browser.
+
+---
+
+## 📦 Dependencies
+
+The primary dependencies include:
+
+```text
 streamlit
 tensorflow
 opencv-python
 numpy
 pillow
 matplotlib
+seaborn
+```
 
-🤝 Acknowledgements
-Kaggle - BreaKHis Dataset
-Army Public School , LBS Marg , Lucknow
-Mrs. Seema Agarwal, for academic guidance
+Install them using:
 
-📜 License
-This project is open-source and available under the MIT License.
+```bash
+pip install -r requirements.txt
+```
 
-🙋‍♂️ Connect With Us
-    Team Breast Scan AI 
-    ARMY PUBLIC SCHOOL 
-    LBS MARG LUCKNOW
-💬 Email: aiexploregroup@gmail.com
+---
+
+## 🎓 Academic Information
+
+**Project Type:** Collaborative Academic Capstone Project
+
+**Project Year:** 2026–2027
+
+**Institution:** Army Public School, LBS Marg, Lucknow
+
+**Academic Batch:** AI Batch 2026–27
+
+**Project Guide:** Mrs. Seema Agarwal
+
+### 👨‍💻 Project Contributors
+
+| Contributor | Role |
+|---|---|
+| Chowda Reddy N | Project Contributor |
+| N Swaroopa | Project Contributor |
+
+**Team:** Team Breast Scan AI
+
+---
+
+## 🙏 Acknowledgements
+
+We sincerely acknowledge:
+
+- **Kaggle and the BreaKHis dataset contributors** for making the histopathological image dataset publicly accessible.
+- **Army Public School, LBS Marg, Lucknow** for providing the academic platform for this project.
+- **Mrs. Seema Agarwal** for her valuable academic guidance and support.
+
+---
+
+## 📜 License
+
+This project is distributed under the **MIT License**.
+
+You are free to use, modify, and distribute the project according to the terms of the license.
+
+---
+
+## 📬 Connect With Us
+
+<p align="center">
+  <strong>TEAM BREAST SCAN AI</strong><br>
+  Army Public School<br>
+  LBS Marg, Lucknow
+</p>
+
+<p align="center">
+  📧 <strong>Email:</strong>
+  <a href="mailto:aiexploregroup@gmail.com">aiexploregroup@gmail.com</a>
+</p>
+
+---
+
+<p align="center">
+  <strong>🧬 Exploring the intersection of Artificial Intelligence and Healthcare.</strong>
+  <br><br>
+  Built with curiosity, collaboration and code.
+  <br><br>
+  ⭐ If you find this project interesting, consider starring the repository!
+</p>
