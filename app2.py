@@ -40,9 +40,9 @@ from reportlab.platypus import Image as RLImage
 MODEL_FILE_ID = "124Fo29-Vt7UVeCLdRnJl75dZda3wRn9X"
 MODEL_URL = f"https://drive.google.com/uc?export=download&id={MODEL_FILE_ID}"
 MODEL_PATH = "model.h5"
-LOGO_PATH = "assets/logo.png"
-BACKDROP_PATH = "assets/bg.png"
-VIDEO_PATH = "assets/wlcmvid.mp4"
+LOGO_PATH = "logo.png"
+BACKDROP_PATH = "bg.png"
+VIDEO_PATH = "wlcmvid.mp4"
 
 CLASSES = ("Benign", "Malignant")
 DEMO_URL = "https://breast-cancer-classification-aps.streamlit.app/"
@@ -560,7 +560,7 @@ def _logo_reader() -> ImageReader | None:
     global _LOGO_CACHE
     if _LOGO_CACHE is not None:
         return _LOGO_CACHE
-    path = Path(__file__).resolve().parent / "assets" / "logo.png"
+    path = Path(__file__).resolve().parent / "logo.png"
     if not path.exists():
         return None
     try:
