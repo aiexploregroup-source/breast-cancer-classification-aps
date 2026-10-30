@@ -40,9 +40,9 @@ from reportlab.platypus import Image as RLImage
 MODEL_FILE_ID = "124Fo29-Vt7UVeCLdRnJl75dZda3wRn9X"
 MODEL_URL = f"https://drive.google.com/uc?export=download&id={MODEL_FILE_ID}"
 MODEL_PATH = "model.h5"
-LOGO_PATH = "logo.png"
-BACKDROP_PATH = "bg.png"
-VIDEO_PATH = "wlcmvid.mp4"
+LOGO_PATH = "assets/logo.png"
+BACKDROP_PATH = "assets/bg.png"
+VIDEO_PATH = "assets/wlcmvid.mp4"
 
 CLASSES = ("Benign", "Malignant")
 DEMO_URL = "https://breast-cancer-classification-aps.streamlit.app/"
@@ -560,7 +560,7 @@ def _logo_reader() -> ImageReader | None:
     global _LOGO_CACHE
     if _LOGO_CACHE is not None:
         return _LOGO_CACHE
-    path = Path(__file__).resolve().parent / "logo.png"
+    path = Path(__file__).resolve().parent / "assets" / "logo.png"
     if not path.exists():
         return None
     try:
@@ -1040,19 +1040,22 @@ st.html(
     <style>
       .st-key-hero {
         background:
-          radial-gradient(640px 340px at 90% 6%, rgba(255, 255, 255, .95), rgba(255, 255, 255, 0) 68%),
-          linear-gradient(118deg, #FFF4F9 0%, #FFE8F2 52%, #FFD8E9 100%);
-        border: 1px solid #F3D3E1;
+          radial-gradient(640px 340px at 88% 4%, rgba(244, 143, 177, .18), rgba(244, 143, 177, 0) 70%),
+          linear-gradient(118deg, #221018 0%, #2A1220 52%, #351626 100%);
+        border: 1px solid #3E2332;
         border-radius: 28px;
         padding: 2.5rem 2.75rem;
-        box-shadow: 0 32px 70px -48px rgba(194, 24, 91, .55);
+        box-shadow: 0 32px 70px -40px rgba(0, 0, 0, .85);
       }
       .st-key-hero_logo {
         max-width: 320px;
         margin: 0 auto;
       }
       .st-key-hero_logo img {
-        filter: drop-shadow(0 18px 26px rgba(194, 24, 91, .22));
+        background: #FFFFFF;
+        border-radius: 28px;
+        padding: 14px;
+        filter: drop-shadow(0 18px 30px rgba(216, 27, 96, .38));
         animation: bsa-float 7s ease-in-out infinite;
       }
       @keyframes bsa-float {
@@ -1067,21 +1070,25 @@ st.html(
       }
 
       .st-key-topbar { margin-bottom: 1.1rem; }
+      .st-key-topbar img {
+        border-radius: 12px;
+        box-shadow: 0 6px 18px -8px rgba(0, 0, 0, .8);
+      }
       .st-key-footer {
         margin-top: .5rem;
-        border-top: 1px solid #F3D3E1;
+        border-top: 1px solid #3A2230;
         padding-top: .9rem;
       }
 
       .st-key-uploader [data-testid="stFileUploaderDropzone"] {
-        background: #FFF6FA;
-        border: 1.5px dashed #EFA8C7;
+        background: #1B0F16;
+        border: 1.5px dashed #5C2F46;
         border-radius: 18px;
         padding: 1.1rem;
       }
       .st-key-uploader [data-testid="stFileUploaderDropzone"]:hover {
-        border-color: #C2185B;
-        background: #FFF0F6;
+        border-color: #E4548A;
+        background: #241320;
       }
 
       [data-testid="stHeader"] { background: transparent; }
