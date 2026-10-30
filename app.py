@@ -1,4 +1,4 @@
-""import streamlit as st
+import streamlit as st
 import tensorflow as tf
 import numpy as np
 from PIL import Image
@@ -123,7 +123,7 @@ elif page == "ℹ️ About":
 &#x20;   """)
 
 \# 🔹 Custom Footer
-st.markdown(
+
 &#x20;   """
 &#x20;   \<style>
 &#x20;   .footer {
@@ -142,4 +142,4 @@ st.markdown(
 &#x20;   \</div>
 &#x20;   """,
 &#x20;   unsafe_allow_html=True
-)"" enhancet the complete design of the website but dint try t use exteral libraries
+)
