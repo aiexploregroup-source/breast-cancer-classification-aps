@@ -30,10 +30,7 @@
 
 **Breast Scan AI** is a collaborative academic project that demonstrates the application of Deep Learning and Computer Vision in the classification of breast cancer histopathological images.
 
-The project explores two neural network architectures:
-
-- **Custom Convolutional Neural Network (CNN)**
-- **ResNet50 with Transfer Learning**
+The project explores neural network architecture *Custom Convolutional Neural Network (CNN)** :
 
 Using the publicly available **BreaKHis dataset**, the models are trained to distinguish between two image classes:
 
@@ -64,9 +61,9 @@ A Streamlit-based web application provides an interactive interface where users 
 
 ## 🧠 Deep Learning Architectures
 
-The project explores two approaches to image classification.
+The project explores Custom CNN approach to image classification.
 
-### 1. Custom CNN
+### Custom CNN
 
 A custom Convolutional Neural Network designed to learn visual features from histopathological images.
 
@@ -75,15 +72,6 @@ A custom Convolutional Neural Network designed to learn visual features from his
 - Image classification through learned representations.
 - Training using the BreaKHis dataset.
 
-### 2. ResNet50
-
-A deep residual network that uses transfer learning to leverage previously learned visual representations.
-
-- Pre-trained ResNet50 architecture.
-- Residual connections.
-- Transfer learning for image classification.
-- Fine-tuning for the target classification task.
-
 ### 📈 Model Performance
 
 The following are the reported project results. They should be interpreted as experimental results rather than independently validated clinical performance.
@@ -91,7 +79,6 @@ The following are the reported project results. They should be interpreted as ex
 | Model | Reported Accuracy | Approach |
 |---|---:|---|
 | Custom CNN | ~92% | Custom deep learning architecture |
-| ResNet50 | ~95% | Transfer learning and fine-tuning |
 
 **Note:** Accuracy alone does not establish clinical reliability. Dataset separation, class-wise precision, recall, F1-score, sensitivity, specificity, and independent validation are important when evaluating classification models.
 
