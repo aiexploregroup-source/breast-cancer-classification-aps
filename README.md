@@ -269,10 +269,14 @@ pip install -r requirements.txt
 
 ### 👨‍💻 Project Contributors
 
-| Contributor | Role |
-|---|---|
-| Chowda Reddy N | Project Contributor |
-| N Swaroopa | Project Contributor |
+| **Contributor** | **Role** |
+|:---|:---|
+| Raj Kumar | Project Lead, ML Trainer & Tester |
+| Daksha Naresh | Data Engineer |
+| Divyanshu Yadav | UI Designer |
+| Vishal Yadav | Frontend Developer |
+| Ansh Mishra | Documentation Lead |
+
 
 **Team:** Team Breast Scan AI
 
