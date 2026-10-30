@@ -1,1441 +1,964 @@
-import os
-import tempfile
-import hashlib
-from datetime import datetime
-from pathlib import Path
-from io import BytesIO
-from xml.sax.saxutils import escape
 
 import streamlit as st
 import tensorflow as tf
 import numpy as np
-import pandas as pd
-import gdown
 from PIL import Image, UnidentifiedImageError
+import gdown
+import os
+import io
+import pandas as pd
+from datetime import datetime
 
-from reportlab.lib import colors
-from reportlab.lib.enums import TA_CENTER, TA_LEFT
-from reportlab.lib.pagesizes import A4
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.lib.units import mm
-from reportlab.platypus import (
-    SimpleDocTemplate,
-    Paragraph,
-    Spacer,
-    Table,
-    TableStyle,
-    Image as PDFImage,
-    HRFlowable,
-    PageBreak,
-)
+# =========================================================
+# 1. APPLICATION CONFIGURATION
+# =========================================================
 
-# ============================================================
-# 01. CONFIGURATION
-# ============================================================
 st.set_page_config(
-    page_title="BreastScan AI | Intelligent Cell Analysis",
+    page_title="BreastScan AI | Intelligent Image Analysis",
     page_icon="🔬",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-APP_NAME = "BreastScan AI"
 FILE_ID = "124Fo29-Vt7UVeCLdRnJl75dZda3wRn9X"
-MODEL_PATH = Path("model.h5")
-TEMP_MODEL_PATH = Path("model_download.tmp")
+MODEL_URL = f"https://drive.google.com/uc?id={FILE_ID}"
+MODEL_PATH = "model.h5"
+
 CLASS_NAMES = ["Benign", "Malignant"]
 
-# These settings MUST match your training pipeline.
-IMAGE_WIDTH = 48
-IMAGE_HEIGHT = 48
-NORMALIZATION = "divide_255"
+# =========================================================
+# 2. CUSTOM CSS
+# =========================================================
 
-# Choose the output format used by your trained model:
-# "softmax" = two-class softmax
-# "sigmoid" = one sigmoid output, where 1 means Malignant
-MODEL_OUTPUT_MODE = "softmax"
-
-# Change to True only if your model expects one grayscale channel.
-GRAYSCALE_MODEL = False
-MAX_IMAGE_PIXELS = 25_000_000
-
-# ============================================================
-# 02. UIVERSE-INSPIRED DESIGN SYSTEM
-# ============================================================
 st.markdown("""
 <style>
-/* ---------- GLOBAL ---------- */
+
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 
 :root {
-    --bg: #07111f;
-    --surface: #101e30;
-    --surface2: #14263b;
-    --surface3: #1b3048;
-    --teal: #35dbc5;
-    --cyan: #58d8ed;
-    --white: #f3f8ff;
-    --muted: #9aadc2;
-    --border: rgba(148, 180, 210, 0.15);
+    --navy: #10243A;
+    --navy2: #172F49;
+    --teal: #14B8A6;
+    --teal-light: #CCFBF1;
+    --bg: #F4F7FB;
+    --text: #172B43;
+    --muted: #718096;
+    --border: #E5EAF1;
 }
 
-.stApp {
-    background:
-        radial-gradient(ellipse at 10% 0%, rgba(18, 119, 132, .19), transparent 35%),
-        radial-gradient(ellipse at 95% 15%, rgba(43, 105, 170, .16), transparent 35%),
-        linear-gradient(140deg, #07111f, #0a1727 55%, #081321);
-    color: var(--white);
+html, body, [class*="css"] {
     font-family: 'DM Sans', sans-serif;
 }
 
-[data-testid="stHeader"] {
-    background: transparent;
+.stApp {
+    background: var(--bg);
 }
 
 .block-container {
-    max-width: 1450px;
     padding-top: 2rem;
-    padding-bottom: 4rem;
+    padding-bottom: 5rem;
+    max-width: 1450px;
 }
 
-/* ---------- SIDEBAR ---------- */
 [data-testid="stSidebar"] {
-    background: linear-gradient(180deg, #0d1c2d, #091522);
-    border-right: 1px solid var(--border);
+    background: var(--navy);
 }
 
 [data-testid="stSidebar"] * {
-    color: #e8f2fc;
+    color: #E8F1F8;
 }
 
 [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p {
-    color: var(--muted);
+    color: #C2D1DF;
 }
 
-.sidebar-brand {
+[data-testid="stSidebar"] .stRadio label {
+    color: white;
+    font-weight: 600;
+}
+
+.brand {
     font-family: 'Plus Jakarta Sans', sans-serif;
     font-size: 25px;
     font-weight: 800;
-    letter-spacing: -1.2px;
+    color: white;
+    letter-spacing: -1px;
 }
 
-.sidebar-brand span {
-    color: var(--teal);
+.brand span {
+    color: #5EEAD4;
 }
 
-.sidebar-caption {
-    font-size: 10px;
-    letter-spacing: 2px;
-    color: #91a8bd;
-    font-weight: 700;
+.sidebar-note {
+    font-size: 12px;
+    color: #A9C0D3;
+    line-height: 1.6;
 }
 
-/* ---------- TYPOGRAPHY ---------- */
-h1, h2, h3 {
-    font-family: 'Plus Jakarta Sans', sans-serif !important;
-    color: var(--white) !important;
-}
-
-p, label, li {
-    color: #c2d0df;
-}
-
-.page-heading {
-    font-family: 'Plus Jakarta Sans', sans-serif;
-    font-size: clamp(27px, 4vw, 40px);
-    font-weight: 800;
-    letter-spacing: -1.7px;
-    color: #f3f8ff;
-    margin-bottom: 6px;
-}
-
-.page-description {
-    color: var(--muted);
-    font-size: 14px;
-    line-height: 1.8;
-}
-
-.eyebrow {
-    color: var(--teal);
-    font-size: 10px;
-    font-weight: 800;
-    letter-spacing: 2.5px;
-    margin-bottom: 13px;
-}
-
-/* ---------- HERO ---------- */
 .hero {
-    background:
-        radial-gradient(circle at 85% 20%, rgba(53, 219, 197, .19), transparent 30%),
-        linear-gradient(120deg, #142c42, #10243a 55%, #13354a);
-    border: 1px solid rgba(86, 213, 207, .22);
-    border-radius: 25px;
-    padding: clamp(25px, 5vw, 48px);
+    background: linear-gradient(120deg, #10243A, #1A4055);
+    border-radius: 22px;
+    padding: 38px;
+    color: white;
+    margin-bottom: 28px;
     position: relative;
     overflow: hidden;
-    box-shadow: 0 18px 60px rgba(0,0,0,.18);
-    margin-bottom: 28px;
-}
-
-.hero:after {
-    content: "✳";
-    position: absolute;
-    right: 6%;
-    top: 5%;
-    font-size: 170px;
-    color: rgba(75, 224, 204, .06);
-    pointer-events: none;
 }
 
 .hero h1 {
-    font-size: clamp(34px, 5vw, 54px) !important;
-    line-height: 1.12;
-    letter-spacing: -2.5px;
-    max-width: 700px;
+    color: white;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: clamp(30px, 4vw, 43px);
+    font-weight: 800;
+    letter-spacing: -1.8px;
+    margin-bottom: 10px;
 }
 
 .hero p {
-    color: #bdcfdf;
-    max-width: 650px;
-    line-height: 1.9;
-    font-size: 14px;
-}
-
-/* ---------- GLASS CARDS ---------- */
-.glass-card {
-    background: linear-gradient(
-        145deg,
-        rgba(25, 47, 69, .88),
-        rgba(13, 29, 46, .95)
-    );
-    border: 1px solid var(--border);
-    border-radius: 19px;
-    padding: 23px;
-    height: 100%;
-    box-shadow: 0 10px 30px rgba(0,0,0,.12);
-    transition: transform .25s ease, border-color .25s ease,
-                box-shadow .25s ease;
-}
-
-.glass-card:hover {
-    transform: translateY(-5px);
-    border-color: rgba(53, 219, 197, .5);
-    box-shadow: 0 15px 38px rgba(0,0,0,.23);
-}
-
-.card-icon {
-    width: 43px;
-    height: 43px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 13px;
-    background: rgba(53, 219, 197, .11);
-    font-size: 21px;
-    margin-bottom: 17px;
-}
-
-.card-title {
-    color: #f1f7ff;
-    font-size: 16px;
-    font-weight: 800;
-    margin-bottom: 8px;
-}
-
-.card-description {
-    color: #9eb1c6;
-    font-size: 12px;
+    color: #CBDCE8;
+    font-size: 15px;
     line-height: 1.8;
+    max-width: 680px;
 }
 
-/* ---------- METRICS ---------- */
+.eyebrow {
+    color: #5EEAD4;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+}
+
+.section-title {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 23px;
+    font-weight: 800;
+    color: var(--text);
+    letter-spacing: -0.6px;
+    margin-top: 22px;
+}
+
+.section-subtitle {
+    color: var(--muted);
+    font-size: 14px;
+    margin-top: -8px;
+    margin-bottom: 20px;
+}
+
 .metric-card {
-    background: linear-gradient(145deg, #152a40, #101f31);
+    background: white;
     border: 1px solid var(--border);
-    border-radius: 17px;
+    border-radius: 16px;
     padding: 22px;
-    transition: .25s ease;
-}
-
-.metric-card:hover {
-    border-color: rgba(53,219,197,.5);
-    transform: translateY(-3px);
+    min-height: 120px;
 }
 
 .metric-label {
-    color: #92a8be;
-    font-size: 10px;
-    font-weight: 800;
-    letter-spacing: 1.3px;
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 700;
     text-transform: uppercase;
+    letter-spacing: 0.8px;
 }
 
 .metric-value {
-    color: white;
-    font-size: 31px;
+    color: var(--navy);
+    font-size: 29px;
     font-weight: 800;
-    margin-top: 9px;
-    font-family: 'Plus Jakarta Sans', sans-serif;
+    margin-top: 8px;
 }
 
 .metric-icon {
     font-size: 23px;
-    margin-bottom: 13px;
-}
-
-/* ---------- UIverse-STYLE BUTTONS ---------- */
-.stButton > button {
-    width: 100%;
-    min-height: 45px;
-    border: 1px solid rgba(53,219,197,.3);
-    border-radius: 12px;
-    color: #071923;
-    background: linear-gradient(100deg, #35dbc5, #58d8ed);
-    font-weight: 800;
-    transition: all .25s ease;
-    box-shadow: 0 5px 18px rgba(53,219,197,.12);
-}
-
-.stButton > button:hover {
-    color: #071923;
-    border: 1px solid #8fffee;
-    box-shadow: 0 0 22px rgba(53,219,197,.35);
-    transform: translateY(-2px);
-}
-
-.stDownloadButton > button {
-    background: #142c42;
-    border: 1px solid rgba(53,219,197,.35);
-    color: #5eead4;
-    border-radius: 11px;
-    font-weight: 700;
-    min-height: 43px;
-}
-
-.stDownloadButton > button:hover {
-    color: white;
-    border-color: #35dbc5;
-}
-
-/* ---------- INPUTS ---------- */
-[data-testid="stFileUploader"] {
-    background: rgba(20, 39, 58, .8);
-    border: 1px dashed rgba(53,219,197,.45);
-    border-radius: 16px;
-    padding: 16px;
-}
-
-[data-testid="stFileUploader"] section {
-    background: transparent;
-}
-
-[data-testid="stFileUploader"] * {
-    color: #d9e9f5 !important;
-}
-
-.stRadio label {
-    font-weight: 600;
-}
-
-[data-testid="stDataFrame"] {
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    overflow: hidden;
-}
-
-/* ---------- RESULTS ---------- */
-.result-card {
-    background: linear-gradient(130deg, #142b41, #102237);
-    border: 1px solid rgba(53,219,197,.3);
-    border-radius: 20px;
-    padding: 26px;
-    margin: 15px 0;
-}
-
-.result-name {
-    font-size: 31px;
-    font-weight: 800;
-    color: white;
-    margin: 9px 0;
-}
-
-.result-score {
-    color: var(--teal);
-    font-size: 37px;
-    font-weight: 800;
-}
-
-.score-label {
-    font-size: 10px;
-    letter-spacing: 1.5px;
-    color: #91a8bd;
-    font-weight: 800;
-}
-
-.status-pill {
-    display: inline-block;
-    padding: 6px 12px;
-    background: rgba(53,219,197,.12);
-    color: #6ef4df;
-    border: 1px solid rgba(53,219,197,.3);
-    border-radius: 50px;
-    font-size: 10px;
-    font-weight: 800;
-    letter-spacing: 1px;
-}
-
-/* ---------- ALERTS ---------- */
-.warning-card {
-    background: rgba(151, 104, 29, .13);
-    border: 1px solid rgba(234, 179, 8, .35);
-    border-radius: 13px;
-    padding: 16px;
-    color: #f3d89a;
-    font-size: 12px;
-    line-height: 1.8;
 }
 
 .info-card {
-    background: rgba(41, 121, 165, .12);
-    border: 1px solid rgba(56, 189, 248, .25);
-    border-radius: 13px;
-    padding: 15px;
-    color: #b9e4fa;
-    font-size: 12px;
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 23px;
+    height: 100%;
+}
+
+.info-card h3 {
+    font-size: 17px;
+    color: var(--navy);
+    font-weight: 800;
+}
+
+.info-card p {
+    color: var(--muted);
+    font-size: 13px;
     line-height: 1.8;
 }
 
-/* ---------- ANIMATIONS ---------- */
-@keyframes fadeUp {
-    from {opacity: 0; transform: translateY(14px);}
-    to {opacity: 1; transform: translateY(0);}
+.result-card {
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 18px;
+    padding: 26px;
+    margin-top: 15px;
 }
 
-.animate {
-    animation: fadeUp .55s ease both;
+.result-benign {
+    border-top: 5px solid #0D9488;
 }
 
-@keyframes pulseGlow {
-    0%,100% {box-shadow: 0 0 0 rgba(53,219,197,0);}
-    50% {box-shadow: 0 0 20px rgba(53,219,197,.12);}
+.result-malignant {
+    border-top: 5px solid #DC6868;
 }
 
-.glow {
-    animation: pulseGlow 3s infinite;
+.result-title {
+    font-size: 28px;
+    font-weight: 800;
+    color: var(--navy);
 }
 
-/* ---------- FOOTER ---------- */
+.confidence {
+    font-size: 36px;
+    font-weight: 800;
+    color: var(--teal);
+}
+
+.upload-container {
+    background: white;
+    border: 1px dashed #9BAFC1;
+    border-radius: 18px;
+    padding: 20px;
+}
+
+.stButton > button {
+    background: var(--teal);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    padding: 11px 23px;
+    font-weight: 800;
+    transition: 0.2s;
+}
+
+.stButton > button:hover {
+    background: #0F9689;
+    color: white;
+    border: none;
+}
+
+.stDownloadButton > button {
+    border-radius: 10px;
+    font-weight: 700;
+}
+
+div[data-testid="stFileUploader"] {
+    background: #F8FAFC;
+    border-radius: 12px;
+    padding: 12px;
+}
+
+div[data-testid="stProgressBar"] > div {
+    background-color: var(--teal);
+}
+
 .footer {
-    border-top: 1px solid var(--border);
-    margin-top: 55px;
-    padding: 25px 10px;
     text-align: center;
-    color: #71889e;
+    padding: 30px 10px;
+    color: #8B9AAD;
+    font-size: 12px;
+    border-top: 1px solid var(--border);
+    margin-top: 50px;
+}
+
+.disclaimer {
+    background: #FFF8E8;
+    border: 1px solid #F4D9A2;
+    padding: 16px;
+    border-radius: 12px;
+    color: #74551B;
+    font-size: 13px;
+    line-height: 1.7;
+}
+
+.small-tag {
+    display: inline-block;
+    background: #DDF7F2;
+    color: #087F72;
+    border-radius: 30px;
+    padding: 5px 12px;
     font-size: 11px;
-    line-height: 2;
+    font-weight: 800;
 }
 
-.footer strong {
-    color: #c4d9e8;
-}
-
-/* ---------- MOBILE ---------- */
-@media(max-width: 768px) {
-    .block-container {
-        padding: 1rem 1rem 3rem;
-    }
-    .hero {
-        padding: 24px;
-    }
-    .hero:after {
-        font-size: 90px;
-    }
-    .metric-card {
-        padding: 16px;
-    }
-}
 </style>
 """, unsafe_allow_html=True)
 
-# ============================================================
-# 03. SESSION STATE
-# ============================================================
+
+# =========================================================
+# 3. MODEL DOWNLOAD AND LOADING
+# =========================================================
+
+@st.cache_resource(show_spinner=False)
+def load_model():
+
+    if not os.path.exists(MODEL_PATH):
+
+        try:
+            result = gdown.download(
+                MODEL_URL,
+                MODEL_PATH,
+                quiet=False,
+                fuzzy=True
+            )
+
+            if result is None or not os.path.exists(MODEL_PATH):
+                raise RuntimeError("Google Drive download failed.")
+
+        except Exception as e:
+            raise RuntimeError(
+                f"Unable to download the model: {e}"
+            )
+
+    if os.path.getsize(MODEL_PATH) < 1024:
+        raise RuntimeError("Downloaded model file is too small or invalid.")
+
+    try:
+        model = tf.keras.models.load_model(
+            MODEL_PATH,
+            compile=False
+        )
+        return model
+
+    except Exception as e:
+        raise RuntimeError(f"Model loading failed: {e}")
+
+
+# =========================================================
+# 4. SESSION STATE
+# =========================================================
+
 if "history" not in st.session_state:
     st.session_state.history = []
+
 if "last_prediction" not in st.session_state:
     st.session_state.last_prediction = None
-if "model_error" not in st.session_state:
-    st.session_state.model_error = None
 
-# ============================================================
-# 04. MODEL DOWNLOAD
-# ============================================================
-def download_model():
-    if MODEL_PATH.exists() and MODEL_PATH.stat().st_size > 1024:
-        return
 
-    try:
-        if TEMP_MODEL_PATH.exists():
-            TEMP_MODEL_PATH.unlink()
+# =========================================================
+# 5. LOAD MODEL
+# =========================================================
 
-        url = f"https://drive.google.com/uc?id={FILE_ID}"
-        downloaded = gdown.download(
-            url,
-            str(TEMP_MODEL_PATH),
-            quiet=False,
-            fuzzy=True
-        )
+try:
+    with st.spinner("Initializing BreastScan AI..."):
+        model = load_model()
 
-        if not downloaded or not TEMP_MODEL_PATH.exists():
-            raise RuntimeError(
-                "Google Drive did not return a valid model file."
-            )
-
-        if TEMP_MODEL_PATH.stat().st_size < 1024:
-            raise RuntimeError(
-                "Downloaded file is too small. Check Drive permissions."
-            )
-
-        # Ensure the file is actually a readable HDF5 model.
-        with open(TEMP_MODEL_PATH, "rb") as f:
-            signature = f.read(8)
-
-        if signature != b"\x89HDF\r\n\x1a\n":
-            raise RuntimeError(
-                "Downloaded file is not a valid HDF5 model. "
-                "Check the Google Drive file ID and sharing permissions."
-            )
-
-        os.replace(TEMP_MODEL_PATH, MODEL_PATH)
-
-    finally:
-        if TEMP_MODEL_PATH.exists():
-            TEMP_MODEL_PATH.unlink()
-
-# ============================================================
-# 05. LOAD MODEL
-# ============================================================
-@st.cache_resource(show_spinner=False)
-def get_model():
-    download_model()
-    loaded_model = tf.keras.models.load_model(
-        str(MODEL_PATH),
-        compile=False
+except Exception as error:
+    st.error("Unable to initialize the AI model.")
+    st.code(str(error))
+    st.info(
+        "Check your Google Drive file permissions, model file ID "
+        "and TensorFlow compatibility."
     )
+    st.stop()
 
-    if len(loaded_model.inputs) != 1:
-        raise ValueError("Only single-input models are supported.")
 
-    shape = loaded_model.input_shape
-    if len(shape) != 4:
-        raise ValueError(
-            f"Expected a 4D image input, received {shape}"
-        )
+# =========================================================
+# 6. IMAGE PREPROCESSING
+# =========================================================
 
-    return loaded_model
+def preprocess_image(image, model):
 
-with st.spinner("Initializing BreastScan AI engine..."):
-    try:
-        model = get_model()
-        st.session_state.model_error = None
-    except Exception as error:
-        model = None
-        st.session_state.model_error = str(error)
+    image = image.convert("RGB")
 
-# ============================================================
-# 06. IMAGE PREPROCESSING
-# ============================================================
-def preprocess_image(image):
-    if model is None:
-        raise RuntimeError("Model is not available.")
+    input_shape = model.input_shape
 
-    shape = model.input_shape
-    if isinstance(shape, list):
-        raise ValueError("Multiple model inputs are unsupported.")
+    if isinstance(input_shape, list):
+        input_shape = input_shape[0]
 
-    # Detect channels-first vs channels-last.
-    channels_first = (
-        shape[1] in (1, 3, 4)
-        and shape[3] not in (1, 3, 4)
-    )
-
-    if channels_first:
-        channels = shape[1]
-        height = shape[2] or IMAGE_HEIGHT
-        width = shape[3] or IMAGE_WIDTH
-    else:
-        height = shape[1] or IMAGE_HEIGHT
-        width = shape[2] or IMAGE_WIDTH
-        channels = shape[3] or (1 if GRAYSCALE_MODEL else 3)
-
-    if height is None or width is None:
-        height, width = IMAGE_HEIGHT, IMAGE_WIDTH
-
-    height, width = int(height), int(width)
-    channels = int(channels)
-
-    if channels not in (1, 3):
-        raise ValueError(
-            f"Unsupported image channels: {channels}"
-        )
+    height = input_shape[1] or 48
+    width = input_shape[2] or 48
+    channels = input_shape[3] or 3
 
     if channels == 1:
         image = image.convert("L")
+        image = image.resize((width, height))
+        image_array = np.array(
+            image,
+            dtype=np.float32
+        )
+        image_array = np.expand_dims(image_array, axis=-1)
+
     else:
-        image = image.convert("RGB")
+        image = image.resize((width, height))
+        image_array = np.array(
+            image,
+            dtype=np.float32
+        )
 
-    image = image.resize(
-        (width, height),
-        Image.Resampling.LANCZOS
-    )
+    # IMPORTANT:
+    # This normalization must match your model's training pipeline.
+    image_array = image_array / 255.0
 
-    array = np.asarray(image, dtype=np.float32)
+    image_array = np.expand_dims(image_array, axis=0)
 
-    if channels == 1:
-        array = np.expand_dims(array, axis=-1)
+    return image_array
 
-    if NORMALIZATION == "divide_255":
-        array = array / 255.0
-    elif NORMALIZATION == "minus1_to1":
-        array = (array / 127.5) - 1.0
-    elif NORMALIZATION == "none":
-        pass
-    else:
-        raise ValueError("Unknown normalization configuration.")
 
-    if channels_first:
-        array = np.transpose(array, (2, 0, 1))
+# =========================================================
+# 7. PREDICTION FUNCTION
+# =========================================================
 
-    array = np.expand_dims(array, axis=0)
-    return array
+def predict_image(image):
 
-# ============================================================
-# 07. PREDICTION ENGINE
-# ============================================================
-def get_probabilities(output):
-    output = np.asarray(output, dtype=np.float64).reshape(-1)
+    processed = preprocess_image(image, model)
 
-    if MODEL_OUTPUT_MODE == "softmax":
-        if len(output) != 2:
-            raise ValueError(
-                "Softmax mode requires exactly two outputs."
-            )
-        # Softmax output must be valid probabilities.
-        if (
-            np.any(output < 0)
-            or np.any(output > 1)
-            or not np.isclose(output.sum(), 1.0, atol=0.01)
-        ):
-            raise ValueError(
-                "Output does not resemble a two-class softmax. "
-                "Check MODEL_OUTPUT_MODE and the training model."
-            )
-        probabilities = output
-
-    elif MODEL_OUTPUT_MODE == "sigmoid":
-        if len(output) != 1:
-            raise ValueError(
-                "Sigmoid mode requires exactly one output."
-            )
-        malignant = float(output[0])
-        if not 0 <= malignant <= 1:
-            raise ValueError(
-                "Sigmoid output is outside [0,1]. "
-                "Check whether your model outputs logits."
-            )
-        probabilities = np.array([
-            1.0 - malignant,
-            malignant
-        ])
-    else:
-        raise ValueError("Invalid MODEL_OUTPUT_MODE.")
-
-    return probabilities
-
-def analyze_image(image):
-    tensor = preprocess_image(image)
     prediction = model.predict(
-        tensor,
+        processed,
         verbose=0
     )
-    probabilities = get_probabilities(prediction)
-    index = int(np.argmax(probabilities))
-    return index, probabilities, tensor.shape
 
-# ============================================================
-# 07b. PROFESSIONAL PDF REPORT GENERATOR
-# ============================================================
-def generate_analysis_pdf(result, original_image, probabilities, tensor_shape, model):
-    """
-    Generate a clean two-page BreastScan AI experimental analysis report.
-    """
-    buffer = BytesIO()
+    prediction = np.asarray(prediction).reshape(-1)
 
-    navy = colors.HexColor("#10243A")
-    dark = colors.HexColor("#172F49")
-    teal = colors.HexColor("#0D9488")
-    light_teal = colors.HexColor("#E8F8F5")
-    light_bg = colors.HexColor("#F3F6FA")
-    grey = colors.HexColor("#65758B")
-    dark_text = colors.HexColor("#24364B")
-    border = colors.HexColor("#DCE5ED")
-    amber = colors.HexColor("#FFF5DF")
-    amber_text = colors.HexColor("#805B18")
+    if len(prediction) == 2:
 
-    styles = getSampleStyleSheet()
-    styles.add(ParagraphStyle(
-        name="Brand", parent=styles["Title"],
-        fontName="Helvetica-Bold", fontSize=25, leading=30,
-        textColor=navy, alignment=TA_LEFT, spaceAfter=5
-    ))
-    styles.add(ParagraphStyle(
-        name="SubtitleCustom", parent=styles["Normal"],
-        fontSize=9, leading=14, textColor=grey
-    ))
-    styles.add(ParagraphStyle(
-        name="SectionCustom", parent=styles["Heading2"],
-        fontName="Helvetica-Bold", fontSize=13, leading=17,
-        textColor=navy, spaceBefore=12, spaceAfter=8
-    ))
-    styles.add(ParagraphStyle(
-        name="BodyCustom", parent=styles["BodyText"],
-        fontSize=9, leading=14, textColor=dark_text
-    ))
-    styles.add(ParagraphStyle(
-        name="SmallCustom", parent=styles["Normal"],
-        fontSize=7.5, leading=11, textColor=grey
-    ))
-    styles.add(ParagraphStyle(
-        name="WhiteSmall", parent=styles["Normal"],
-        fontSize=8, leading=12, textColor=colors.HexColor("#D6E7F1")
-    ))
-    styles.add(ParagraphStyle(
-        name="DisclaimerCustom", parent=styles["Normal"],
-        fontSize=8, leading=12, textColor=amber_text
-    ))
-    styles.add(ParagraphStyle(
-        name="CenteredSmall", parent=styles["Normal"],
-        fontSize=8, leading=12, textColor=grey, alignment=TA_CENTER
-    ))
+        # Assumes a two-class softmax output.
+        probabilities = prediction.astype(float)
 
-    def page_decor(canvas, doc):
-        canvas.saveState()
-        page_width, page_height = A4
-        canvas.setFillColor(teal)
-        canvas.rect(0, page_height - 5, page_width, 5, stroke=0, fill=1)
-        canvas.setStrokeColor(border)
-        canvas.setLineWidth(0.5)
-        canvas.line(18 * mm, 15 * mm, page_width - 18 * mm, 15 * mm)
-        canvas.setFont("Helvetica", 7)
-        canvas.setFillColor(grey)
-        canvas.drawString(18 * mm, 10 * mm, "BREASTSCAN AI | EDUCATIONAL RESEARCH PROJECT")
-        canvas.drawRightString(page_width - 18 * mm, 10 * mm, f"Page {doc.page}")
-        canvas.restoreState()
+        # Convert logits to probabilities if necessary.
+        if (
+            np.any(probabilities < 0)
+            or np.any(probabilities > 1)
+            or not np.isclose(np.sum(probabilities), 1.0, atol=0.05)
+        ):
+            exp_values = np.exp(
+                probabilities - np.max(probabilities)
+            )
+            probabilities = exp_values / np.sum(exp_values)
 
-    doc = SimpleDocTemplate(
-        buffer,
-        pagesize=A4,
-        rightMargin=18 * mm,
-        leftMargin=18 * mm,
-        topMargin=17 * mm,
-        bottomMargin=22 * mm,
-        title="BreastScan AI Analysis Report",
-        author="Team Breast Scan AI",
-        subject="Experimental CNN image classification report",
-    )
+    elif len(prediction) == 1:
 
-    story = []
+        # Assumes a sigmoid output representing class 1.
+        malignant_probability = float(prediction[0])
 
-    # ---------- HEADER ----------
-    story.append(Paragraph("BREASTSCAN <font color='#0D9488'>AI</font>", styles["Brand"]))
-    story.append(Paragraph("INTELLIGENT IMAGE CLASSIFICATION PLATFORM", styles["SmallCustom"]))
-    story.append(Spacer(1, 7))
-    story.append(HRFlowable(width="100%", thickness=1.2, color=teal, spaceAfter=12))
-    story.append(Paragraph("EXPERIMENTAL IMAGE ANALYSIS REPORT", styles["SectionCustom"]))
-    story.append(Paragraph(
-        "A machine-learning inference report generated by the BreastScan AI educational application.",
-        styles["SubtitleCustom"]
-    ))
-    story.append(Spacer(1, 13))
+        if not 0 <= malignant_probability <= 1:
+            malignant_probability = 1 / (
+                1 + np.exp(-malignant_probability)
+            )
 
-    # ---------- RESULT BANNER ----------
-    prediction = escape(str(result["Prediction"]))
-    score = float(result["Selected Class Score"])
-    result_data = [[
-        Paragraph(
-            "<font color='#D6E7F1'>MODEL CLASSIFICATION OUTPUT</font><br/>"
-            f"<font color='#FFFFFF' size='21'><b>{prediction}</b></font>",
-            styles["WhiteSmall"]
-        ),
-        Paragraph(
-            f"<font color='#5EEAD4' size='23'><b>{score:.2f}%</b></font><br/>"
-            "<font color='#D6E7F1'>SELECTED CLASS SCORE</font>",
-            styles["CenteredSmall"]
+        probabilities = np.array([
+            1 - malignant_probability,
+            malignant_probability
+        ])
+
+    else:
+        raise ValueError(
+            "Unsupported model output. Expected one or two outputs."
         )
-    ]]
-    result_table = Table(result_data, colWidths=[88 * mm, 75 * mm], rowHeights=[29 * mm])
-    result_table.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, -1), navy),
-        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ("LEFTPADDING", (0, 0), (-1, -1), 13),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 13),
-        ("BOX", (0, 0), (-1, -1), 0.7, teal),
-        ("ROUNDEDCORNERS", [9, 9, 9, 9]),
-    ]))
-    story.append(result_table)
-    story.append(Spacer(1, 13))
 
-    # ---------- IMAGE + DETAILS ----------
-    story.append(Paragraph("01 | IMAGE INFORMATION", styles["SectionCustom"]))
+    class_index = int(np.argmax(probabilities))
 
-    image_buffer = BytesIO()
-    preview = original_image.convert("RGB")
-    preview.thumbnail((900, 700))
-    preview.save(image_buffer, format="JPEG", quality=88)
-    image_buffer.seek(0)
-    preview_image = PDFImage(image_buffer, width=67 * mm, height=51 * mm, kind="proportional")
+    return class_index, probabilities, processed.shape
 
-    image_details = [
-        ["Filename", escape(str(result["Filename"]))],
-        ["Analysis date", escape(str(result["Time"]))],
-        ["Original dimensions", f"{original_image.width} × {original_image.height} pixels"],
-        ["Model input tensor", escape(str(tensor_shape))],
-        ["Model architecture", escape(str(model.name))],
-    ]
-    detail_table = Table(image_details, colWidths=[36 * mm, 88 * mm])
-    detail_table.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (0, -1), light_bg),
-        ("TEXTCOLOR", (0, 0), (0, -1), navy),
-        ("TEXTCOLOR", (1, 0), (1, -1), dark_text),
-        ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
-        ("FONTNAME", (1, 0), (1, -1), "Helvetica"),
-        ("FONTSIZE", (0, 0), (-1, -1), 8),
-        ("LEADING", (0, 0), (-1, -1), 11),
-        ("GRID", (0, 0), (-1, -1), 0.4, border),
-        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ("LEFTPADDING", (0, 0), (-1, -1), 7),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 7),
-        ("TOPPADDING", (0, 0), (-1, -1), 7),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
-    ]))
 
-    image_layout = Table([[preview_image, detail_table]], colWidths=[70 * mm, 94 * mm])
-    image_layout.setStyle(TableStyle([
-        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ("LEFTPADDING", (0, 0), (-1, -1), 3),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 5),
-        ("TOPPADDING", (0, 0), (-1, -1), 3),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 3),
-    ]))
-    story.append(image_layout)
+# =========================================================
+# 8. SIDEBAR
+# =========================================================
 
-    # ---------- SCORES ----------
-    story.append(Paragraph("02 | MODEL OUTPUT SCORES", styles["SectionCustom"]))
-    benign_score = float(probabilities[0]) * 100
-    malignant_score = float(probabilities[1]) * 100
-    score_data = [
-        ["CLASS", "MODEL OUTPUT SCORE"],
-        ["Benign", f"{benign_score:.2f}%"],
-        ["Malignant", f"{malignant_score:.2f}%"],
-    ]
-    score_table = Table(score_data, colWidths=[81 * mm, 82 * mm])
-    score_table.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, 0), navy),
-        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-        ("BACKGROUND", (0, 1), (-1, 1), light_teal),
-        ("BACKGROUND", (0, 2), (-1, 2), light_bg),
-        ("TEXTCOLOR", (0, 1), (-1, -1), dark_text),
-        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-        ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
-        ("FONTSIZE", (0, 0), (-1, -1), 9),
-        ("ALIGN", (1, 0), (1, -1), "RIGHT"),
-        ("GRID", (0, 0), (-1, -1), 0.5, border),
-        ("LEFTPADDING", (0, 0), (-1, -1), 10),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 10),
-        ("TOPPADDING", (0, 0), (-1, -1), 9),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 9),
-    ]))
-    story.append(score_table)
-    story.append(Spacer(1, 7))
-    story.append(Paragraph(
-        "These values represent the model's classification output scores. "
-        "They are not calibrated probabilities of disease.",
-        styles["SmallCustom"]
-    ))
-
-    # ---------- PAGE 2 ----------
-    story.append(PageBreak())
-    story.append(Paragraph("TECHNICAL NOTES & LIMITATIONS", styles["Brand"]))
-    story.append(Paragraph("Supporting information for this experimental analysis.", styles["SubtitleCustom"]))
-    story.append(HRFlowable(width="100%", thickness=1.2, color=teal, spaceBefore=10, spaceAfter=12))
-
-    story.append(Paragraph("03 | MODEL INFORMATION", styles["SectionCustom"]))
-    model_details = [
-        ["Property", "Value"],
-        ["Application", "BreastScan AI"],
-        ["Model framework", "TensorFlow / Keras"],
-        ["Model architecture", escape(str(model.name))],
-        ["Model input", escape(str(tensor_shape))],
-        ["Classification classes", "Benign / Malignant"],
-    ]
-    model_table = Table(model_details, colWidths=[64 * mm, 99 * mm])
-    model_table.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, 0), navy),
-        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-        ("BACKGROUND", (0, 1), (-1, -1), light_bg),
-        ("TEXTCOLOR", (0, 1), (-1, -1), dark_text),
-        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-        ("FONTNAME", (0, 1), (-1, -1), "Helvetica"),
-        ("FONTSIZE", (0, 0), (-1, -1), 8),
-        ("GRID", (0, 0), (-1, -1), 0.4, border),
-        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-        ("LEFTPADDING", (0, 0), (-1, -1), 9),
-        ("TOPPADDING", (0, 0), (-1, -1), 8),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 8),
-    ]))
-    story.append(model_table)
-
-    story.append(Paragraph("04 | INTERPRETATION", styles["SectionCustom"]))
-    story.append(Paragraph(
-        "The application processes an uploaded image and passes the resulting image tensor "
-        "to a trained convolutional neural network. The network returns scores corresponding "
-        "to its configured output classes. The displayed category is the class with the "
-        "highest model output score.",
-        styles["BodyCustom"]
-    ))
-    story.append(Spacer(1, 12))
-
-    story.append(Paragraph("05 | IMPORTANT MEDICAL AND RESEARCH DISCLAIMER", styles["SectionCustom"]))
-    disclaimer_text = """
-    <b>THIS IS NOT A MEDICAL DIAGNOSTIC REPORT.</b><br/><br/>
-    BreastScan AI is an educational and experimental machine-learning project.
-    It has not been established as a clinically validated medical device or cancer screening system.<br/><br/>
-    A Benign classification does not rule out cancer. A Malignant classification does not confirm cancer.
-    Model output scores should not be interpreted as a person's probability of having cancer.<br/><br/>
-    Performance on an individual image may be affected by image quality, dataset characteristics,
-    preprocessing, model limitations and differences between training and real-world images.<br/><br/>
-    Do not use this application or its reports for diagnosis, screening, treatment selection or medical decisions.
-    Medical concerns must be evaluated by a qualified healthcare professional using appropriate clinical investigations.
-    """
-    disclaimer_box = Table(
-        [[Paragraph(disclaimer_text, styles["DisclaimerCustom"])]],
-        colWidths=[163 * mm]
-    )
-    disclaimer_box.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, -1), amber),
-        ("BOX", (0, 0), (-1, -1), 0.8, colors.HexColor("#E8C77B")),
-        ("LEFTPADDING", (0, 0), (-1, -1), 12),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 12),
-        ("TOPPADDING", (0, 0), (-1, -1), 12),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 12),
-    ]))
-    story.append(disclaimer_box)
-
-    story.append(Paragraph("06 | PROJECT ACKNOWLEDGEMENT", styles["SectionCustom"]))
-    story.append(Paragraph(
-        "<b>Developed by Team Breast Scan AI</b><br/>"
-        "Army Public School, LBS Marg, Lucknow<br/>"
-        "Academic Year 2026–2027",
-        styles["BodyCustom"]
-    ))
-    story.append(Spacer(1, 18))
-    story.append(HRFlowable(width="100%", thickness=0.8, color=border))
-    story.append(Spacer(1, 10))
-    story.append(Paragraph(
-        "BREASTSCAN AI · EXPERIMENTAL RESEARCH REPORT",
-        styles["CenteredSmall"]
-    ))
-    story.append(Paragraph(
-        "Generated automatically by the BreastScan AI application.",
-        styles["CenteredSmall"]
-    ))
-
-    # Build the PDF
-    doc.build(
-        story,
-        onFirstPage=page_decor,
-        onLaterPages=page_decor
-    )
-    buffer.seek(0)
-    return buffer.getvalue()
-
-# ============================================================
-# 08. REUSABLE UI COMPONENTS
-# ============================================================
-def page_header(title, description, eyebrow="BREASTSCAN AI"):
-    st.markdown(f"""
-    <div class="animate">
-        <div class="eyebrow">{eyebrow}</div>
-        <div class="page-heading">{title}</div>
-        <div class="page-description">{description}</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-def metric_card(icon, label, value):
-    st.markdown(f"""
-    <div class="metric-card animate">
-        <div class="metric-icon">{icon}</div>
-        <div class="metric-label">{label}</div>
-        <div class="metric-value">{value}</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-def info_card(icon, title, description):
-    st.markdown(f"""
-    <div class="glass-card animate">
-        <div class="card-icon">{icon}</div>
-        <div class="card-title">{title}</div>
-        <div class="card-description">{description}</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-def disclaimer():
-    st.markdown("""
-    <div class="warning-card">
-        <strong>⚠ RESEARCH USE ONLY</strong><br>
-        BreastScan AI is an educational image-classification
-        demonstration, not a clinically validated diagnostic
-        or screening system. A Benign output cannot rule out
-        cancer, and a Malignant output cannot confirm cancer.
-        Never use these results to make medical decisions.
-        Consult a qualified healthcare professional for medical
-        assessment.
-    </div>
-    """, unsafe_allow_html=True)
-
-# ============================================================
-# 09. SIDEBAR NAVIGATION
-# ============================================================
 with st.sidebar:
-    st.markdown("""
-    <div class="sidebar-brand">Breast<span>Scan</span> AI</div>
-    <div class="sidebar-caption">INTELLIGENT IMAGE ANALYSIS</div>
-    """, unsafe_allow_html=True)
 
-    st.write("")
+    st.markdown(
+        '<div class="brand">Breast<span>Scan</span> AI</div>',
+        unsafe_allow_html=True
+    )
+
+    st.markdown(
+        '<p class="sidebar-note">INTELLIGENT IMAGE CLASSIFICATION PLATFORM</p>',
+        unsafe_allow_html=True
+    )
+
     st.markdown("---")
-    st.markdown("##### WORKSPACE")
+
+    st.markdown("### Navigation")
 
     page = st.radio(
-        "Navigation",
+        "Choose a section",
         [
-            "Dashboard",
-            "AI Scanner",
-            "Prediction History",
-            "About Project"
+            "🏠  Dashboard",
+            "🔬  AI Scanner",
+            "📊  History",
+            "ℹ️  About Project"
         ],
         label_visibility="collapsed"
     )
 
     st.markdown("---")
 
-    if model is not None:
-        st.markdown(
-            '<span class="status-pill">● MODEL ONLINE</span>',
-            unsafe_allow_html=True
-        )
-    else:
-        st.error("Model unavailable")
+    st.markdown(
+        '<span class="small-tag">● MODEL LOADED</span>',
+        unsafe_allow_html=True
+    )
 
     st.write("")
-    st.caption("POWERED BY TENSORFLOW")
-    st.caption("TEAM BREAST SCAN AI")
-    st.caption("APS LBS MARG · LUCKNOW")
-    st.markdown("---")
-    st.caption("ACADEMIC PROJECT · 2026")
 
-# ============================================================
-# 10. MODEL ERROR SCREEN
-# ============================================================
-if model is None:
-    st.error("AI model could not be initialized.")
-    st.write(
-        "Check the Google Drive link, model format, "
-        "file permissions and TensorFlow compatibility."
-    )
-    st.code(st.session_state.model_error or "Unknown error")
-    st.stop()
+    st.caption("TensorFlow + Keras")
+    st.caption("Developed by Team Breast Scan AI")
+    st.caption("APS LBS Marg, Lucknow")
 
-# ============================================================
-# 11. DASHBOARD
-# ============================================================
-if page == "Dashboard":
+
+# =========================================================
+# 9. DASHBOARD
+# =========================================================
+
+if page == "🏠  Dashboard":
+
     st.markdown("""
-    <div class="hero animate">
-        <div class="eyebrow">ARTIFICIAL INTELLIGENCE · DEEP LEARNING</div>
-        <h1>Explore the power<br>of intelligent image analysis.</h1>
+    <div class="hero">
+
+        <div class="eyebrow">ARTIFICIAL INTELLIGENCE · IMAGE ANALYSIS</div>
+
+        <h1>Intelligent Breast<br>Cell Image Analysis.</h1>
+
         <p>
-        An educational demonstration of convolutional neural
-        networks for breast cell image classification.
-        Explore model outputs through an interactive workspace.
+        Explore an experimental deep-learning system designed
+        to classify uploaded breast cell images into two
+        model-defined categories: Benign and Malignant.
         </p>
-        <span class="status-pill">CNN POWERED</span>
-        <span class="status-pill">TENSORFLOW</span>
+
+        <span class="small-tag">CNN POWERED</span>
+
     </div>
     """, unsafe_allow_html=True)
 
     total = len(st.session_state.history)
-    benign = sum(
+
+    benign_count = sum(
         x["Prediction"] == "Benign"
         for x in st.session_state.history
     )
-    malignant = sum(
+
+    malignant_count = sum(
         x["Prediction"] == "Malignant"
         for x in st.session_state.history
     )
 
+    c1, c2, c3 = st.columns(3)
+
+    with c1:
+        st.markdown(f"""
+        <div class="metric-card">
+            <div class="metric-icon">🔬</div>
+            <div class="metric-label">Images analyzed</div>
+            <div class="metric-value">{total}</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with c2:
+        st.markdown(f"""
+        <div class="metric-card">
+            <div class="metric-icon">🟢</div>
+            <div class="metric-label">Benign predictions</div>
+            <div class="metric-value">{benign_count}</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    with c3:
+        st.markdown(f"""
+        <div class="metric-card">
+            <div class="metric-icon">🔴</div>
+            <div class="metric-label">Malignant predictions</div>
+            <div class="metric-value">{malignant_count}</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    st.markdown(
+        '<div class="section-title">Explore the platform</div>',
+        unsafe_allow_html=True
+    )
+
+    st.markdown(
+        '<div class="section-subtitle">Discover the main features of BreastScan AI.</div>',
+        unsafe_allow_html=True
+    )
+
     a, b, c = st.columns(3)
+
     with a:
-        metric_card("🔬", "Images analyzed", total)
+        st.markdown("""
+        <div class="info-card">
+            <h3>🔬 AI Image Scanner</h3>
+            <p>Upload a compatible image and obtain
+            an experimental CNN classification.</p>
+        </div>
+        """, unsafe_allow_html=True)
+
     with b:
-        metric_card("🟢", "Benign outputs", benign)
+        st.markdown("""
+        <div class="info-card">
+            <h3>📊 Prediction Insights</h3>
+            <p>Explore the model's output scores
+            for the two classification categories.</p>
+        </div>
+        """, unsafe_allow_html=True)
+
     with c:
-        metric_card("🔴", "Malignant outputs", malignant)
+        st.markdown("""
+        <div class="info-card">
+            <h3>📁 Session History</h3>
+            <p>Review previous predictions made
+            during your current session.</p>
+        </div>
+        """, unsafe_allow_html=True)
 
     st.write("")
-    page_header(
-        "Your workspace",
-        "Everything you need to explore the experimental model."
+
+    st.markdown("""
+    <div class="disclaimer">
+    <b>⚠️ Research disclaimer:</b> BreastScan AI is an educational
+    and experimental machine-learning project. It is not a
+    medical device and must not be used for cancer screening,
+    diagnosis, treatment decisions or reassurance. Its predictions
+    require independent scientific validation.
+    </div>
+    """, unsafe_allow_html=True)
+
+
+# =========================================================
+# 10. AI SCANNER
+# =========================================================
+
+elif page == "🔬  AI Scanner":
+
+    st.markdown(
+        '<div class="section-title">AI Image Scanner</div>',
+        unsafe_allow_html=True
     )
 
-    x, y, z = st.columns(3)
-    with x:
-        info_card(
-            "🔬",
-            "AI Scanner",
-            "Upload a compatible image and run model inference."
-        )
-    with y:
-        info_card(
-            "📊",
-            "Output Analysis",
-            "Inspect both classification scores and the selected class."
-        )
-    with z:
-        info_card(
-            "📁",
-            "Session History",
-            "Review and export your current session's predictions."
-        )
-
-    st.write("")
-    disclaimer()
-
-# ============================================================
-# 12. AI SCANNER
-# ============================================================
-elif page == "AI Scanner":
-    page_header(
-        "AI Image Scanner",
-        "Upload an image to explore your model's classification output.",
-        "IMAGE ANALYSIS LAB"
+    st.markdown(
+        '<div class="section-subtitle">Upload an image to explore the model output.</div>',
+        unsafe_allow_html=True
     )
 
-    st.write("")
-    disclaimer()
+    st.markdown("""
+    <div class="disclaimer">
+    <b>Before uploading:</b> This experimental classifier is intended
+    for research and educational demonstrations only. A prediction
+    cannot determine whether a person has or does not have cancer.
+    </div>
+    """, unsafe_allow_html=True)
+
     st.write("")
 
     uploaded_file = st.file_uploader(
-        "UPLOAD IMAGE",
+        "Choose a breast cell image",
         type=["jpg", "jpeg", "png"],
-        help="Choose a JPG or PNG image."
+        help="Supported formats: JPG, JPEG and PNG."
     )
 
-    if uploaded_file is not None:
+    if uploaded_file:
+
         try:
-            image_bytes = uploaded_file.getvalue()
-
-            if len(image_bytes) > 15 * 1024 * 1024:
-                st.error("File exceeds the 15 MB upload limit.")
-                st.stop()
-
-            file_hash = hashlib.sha256(
-                image_bytes
-            ).hexdigest()
-
-            image = Image.open(
-                uploaded_file
-            )
+            image = Image.open(uploaded_file)
             image.load()
 
-            if image.width * image.height > MAX_IMAGE_PIXELS:
-                st.error("Image resolution is too large.")
-                st.stop()
-
             if image.width < 10 or image.height < 10:
-                st.error("Image resolution is too small.")
+                st.error("Image dimensions are too small.")
                 st.stop()
 
-            col1, col2 = st.columns([1.15, 1])
+            if image.width * image.height > 25000000:
+                st.error("Image is too large to process.")
+                st.stop()
+
+            st.markdown("### Uploaded image")
+
+            col1, col2 = st.columns([1.2, 1])
 
             with col1:
-                st.markdown("### Image preview")
                 st.image(
                     image,
+                    caption="Uploaded image",
                     use_container_width=True
                 )
 
             with col2:
-                st.markdown("### Image details")
+
+                st.markdown("#### Image information")
+
                 st.write(f"**Filename:** {uploaded_file.name}")
-                st.write(f"**Dimensions:** {image.width} × {image.height}")
+                st.write(f"**Width:** {image.width}px")
+                st.write(f"**Height:** {image.height}px")
                 st.write(f"**Format:** {image.format}")
-                st.write(f"**File size:** {len(image_bytes) / 1024:.1f} KB")
 
                 st.write("")
+
                 analyze = st.button(
-                    "✦  RUN AI ANALYSIS",
-                    key="analyze_button",
+                    "🔬  Analyze Image",
                     use_container_width=True
                 )
 
             if analyze:
-                with st.spinner("Analyzing image with CNN..."):
-                    index, probabilities, tensor_shape = analyze_image(image)
 
-                prediction_name = CLASS_NAMES[index]
-                selected_score = float(
-                    probabilities[index] * 100
-                )
+                with st.spinner("Running model inference..."):
+
+                    class_index, probabilities, shape = predict_image(
+                        image
+                    )
+
+                prediction_name = CLASS_NAMES[class_index]
+                confidence = float(probabilities[class_index]) * 100
 
                 result = {
-                    "Time": datetime.now().strftime("%d-%m-%Y %H:%M:%S"),
+                    "Time": datetime.now().strftime(
+                        "%d-%m-%Y %H:%M:%S"
+                    ),
                     "Filename": uploaded_file.name,
                     "Prediction": prediction_name,
                     "Benign Score": round(
-                        float(probabilities[0] * 100), 2
+                        float(probabilities[0]) * 100, 2
                     ),
                     "Malignant Score": round(
-                        float(probabilities[1] * 100), 2
+                        float(probabilities[1]) * 100, 2
                     ),
-                    "Selected Class Score": round(selected_score, 2),
-                    "File Hash": file_hash
+                    "Model Score": round(confidence, 2)
                 }
 
                 st.session_state.history.insert(0, result)
                 st.session_state.last_prediction = result
 
-                st.write("")
-                st.markdown("### Analysis results")
+                st.markdown("### Analysis output")
+
+                result_class = (
+                    "result-benign"
+                    if class_index == 0
+                    else "result-malignant"
+                )
 
                 st.markdown(f"""
-                <div class="result-card glow animate">
-                    <div class="score-label">MODEL CLASSIFICATION OUTPUT</div>
-                    <div class="result-name">{prediction_name}</div>
-                    <div class="result-score">{selected_score:.2f}%</div>
-                    <div class="score-label">SELECTED CLASS OUTPUT SCORE</div>
+                <div class="result-card {result_class}">
+                    <div class="metric-label">MODEL CLASSIFICATION OUTPUT</div>
+                    <div class="result-title">{prediction_name}</div>
+                    <div class="confidence">{confidence:.2f}%</div>
+                    <div class="metric-label">MODEL SCORE FOR SELECTED CLASS</div>
                 </div>
                 """, unsafe_allow_html=True)
 
+                st.write("")
+
                 st.markdown("#### Class output scores")
-                p1, p2 = st.columns(2)
 
-                with p1:
-                    st.markdown("**🟢 Benign**")
-                    st.metric(
-                        "Model score",
-                        f"{probabilities[0] * 100:.2f}%"
-                    )
-                    st.progress(
-                        float(probabilities[0])
-                    )
+                st.write(
+                    f"🟢 **Benign:** {probabilities[0] * 100:.2f}%"
+                )
 
-                with p2:
-                    st.markdown("**🔴 Malignant**")
-                    st.metric(
-                        "Model score",
-                        f"{probabilities[1] * 100:.2f}%"
-                    )
-                    st.progress(
-                        float(probabilities[1])
-                    )
+                st.progress(float(probabilities[0]))
+
+                st.write(
+                    f"🔴 **Malignant:** {probabilities[1] * 100:.2f}%"
+                )
+
+                st.progress(float(probabilities[1]))
 
                 st.caption(
-                    f"Model input tensor: {tensor_shape}"
+                    f"Processed input tensor: {shape}"
                 )
 
-                # Generate professional PDF report
-                pdf_report = generate_analysis_pdf(
-                    result=result,
-                    original_image=image,
-                    probabilities=probabilities,
-                    tensor_shape=tensor_shape,
-                    model=model
-                )
+                report = f"""
+BREASTSCAN AI
+EXPERIMENTAL MODEL OUTPUT REPORT
+=================================
+
+Date: {result['Time']}
+Filename: {result['Filename']}
+
+Model classification output: {prediction_name}
+
+Benign output score: {probabilities[0] * 100:.2f}%
+Malignant output score: {probabilities[1] * 100:.2f}%
+Selected class score: {confidence:.2f}%
+
+IMPORTANT MEDICAL DISCLAIMER:
+This is an experimental machine-learning output.
+It is NOT a medical diagnosis, cancer screening result,
+or clinically validated prediction.
+
+A benign prediction does not rule out cancer.
+A malignant prediction does not confirm cancer.
+
+Consult a qualified healthcare professional for
+medical evaluation and appropriate testing.
+
+Developed by Team Breast Scan AI
+APS LBS Marg, Lucknow
+"""
 
                 st.download_button(
-                    label="📄 DOWNLOAD PROFESSIONAL PDF REPORT",
-                    data=pdf_report,
-                    file_name=(
-                        f"BreastScan_AI_Report_"
-                        f"{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
-                    ),
-                    mime="application/pdf",
-                    use_container_width=True,
-                    key="download_pdf_report"
+                    "📥 Download Analysis Report",
+                    data=report,
+                    file_name="BreastScan_AI_Report.txt",
+                    mime="text/plain",
+                    use_container_width=True
                 )
 
-                disclaimer()
+                st.markdown("""
+                <div class="disclaimer">
+                <b>Important:</b> The displayed percentages are model
+                output scores, not clinically established probabilities
+                of having or not having cancer. Even a high score does
+                not establish diagnostic certainty.
+                </div>
+                """, unsafe_allow_html=True)
 
         except UnidentifiedImageError:
-            st.error("Invalid image file. Please upload a valid JPG or PNG.")
-        except Exception as error:
-            st.error("Image analysis failed.")
-            st.code(str(error))
+            st.error("The uploaded file is not a valid image.")
 
-# ============================================================
-# 13. PREDICTION HISTORY
-# ============================================================
-elif page == "Prediction History":
-    page_header(
-        "Prediction History",
-        "Review and export predictions made in your current session.",
-        "SESSION ANALYTICS"
+        except Exception as error:
+            st.error(f"Image analysis failed: {error}")
+
+
+# =========================================================
+# 11. HISTORY
+# =========================================================
+
+elif page == "📊  History":
+
+    st.markdown(
+        '<div class="section-title">Prediction History</div>',
+        unsafe_allow_html=True
     )
 
-    st.write("")
+    st.markdown(
+        '<div class="section-subtitle">Results from your current browser session.</div>',
+        unsafe_allow_html=True
+    )
 
     if st.session_state.history:
-        df = pd.DataFrame(
-            st.session_state.history
-        )
-        display_df = df.drop(
-            columns=["File Hash"],
-            errors="ignore"
-        )
+
+        df = pd.DataFrame(st.session_state.history)
 
         st.dataframe(
-            display_df,
+            df,
             use_container_width=True,
             hide_index=True
         )
 
-        csv_data = df.to_csv(
-            index=False
-        ).encode("utf-8")
+        csv = df.to_csv(index=False).encode("utf-8")
 
-        a, b = st.columns(2)
-        with a:
-            st.download_button(
-                "↓ EXPORT CSV",
-                data=csv_data,
-                file_name="BreastScan_History.csv",
-                mime="text/csv",
-                use_container_width=True
-            )
-        with b:
-            if st.button(
-                "CLEAR HISTORY",
-                use_container_width=True
-            ):
-                st.session_state.history = []
-                st.session_state.last_prediction = None
-                st.rerun()
-    else:
-        st.info(
-            "Your history is empty. Analyze an image to see results here."
+        st.download_button(
+            "📥 Export History as CSV",
+            data=csv,
+            file_name="breastscan_history.csv",
+            mime="text/csv"
         )
 
-# ============================================================
-# 14. ABOUT PROJECT
-# ============================================================
-elif page == "About Project":
-    page_header(
-        "About BreastScan AI",
-        "An educational deep-learning and computer vision project.",
-        "PROJECT INFORMATION"
+        if st.button("🗑 Clear History"):
+
+            st.session_state.history = []
+            st.session_state.last_prediction = None
+            st.rerun()
+
+    else:
+
+        st.info(
+            "No predictions yet. Visit the AI Scanner to analyze an image."
+        )
+
+
+# =========================================================
+# 12. ABOUT PROJECT
+# =========================================================
+
+elif page == "ℹ️  About Project":
+
+    st.markdown(
+        '<div class="section-title">About BreastScan AI</div>',
+        unsafe_allow_html=True
     )
 
-    st.write("")
     st.markdown("""
     <div class="hero">
-        <div class="eyebrow">TEAM BREAST SCAN AI</div>
-        <h1>Technology meets<br>medical image research.</h1>
+
+        <div class="eyebrow">OUR PROJECT</div>
+
+        <h1>Artificial Intelligence<br>for Image Classification.</h1>
+
         <p>
-        This project demonstrates the integration of a
-        Convolutional Neural Network with an interactive
-        image-classification web application.
+        BreastScan AI demonstrates how convolutional neural
+        networks can be integrated into an interactive
+        image-classification application.
         </p>
+
     </div>
     """, unsafe_allow_html=True)
 
-    a, b = st.columns(2)
-    with a:
-        info_card(
-            "🧠",
-            "Deep Learning",
-            "A custom CNN model developed using TensorFlow and Keras."
-        )
-    with b:
-        info_card(
-            "🌐",
-            "Web Technology",
-            "An interactive application developed using Streamlit."
-        )
+    st.markdown("### Project overview")
 
-    st.write("")
+    st.write("""
+    BreastScan AI is an educational machine-learning project
+    that uses a custom Convolutional Neural Network (CNN)
+    built with TensorFlow and Keras.
+
+    The model produces one of two outputs:
+
+    - Benign
+    - Malignant
+
+    Users can upload an image, run model inference and
+    explore the classification scores.
+    """)
+
     st.markdown("### Technology stack")
 
-    tech = pd.DataFrame({
-        "Technology": [
-            "Python",
-            "TensorFlow",
-            "Keras",
-            "NumPy",
-            "Pillow",
-            "Streamlit",
-            "ReportLab"
-        ],
-        "Purpose": [
-            "Programming",
-            "Deep learning",
-            "Neural network framework",
-            "Numerical operations",
-            "Image processing",
-            "Web application",
-            "Professional PDF reports"
-        ]
-    })
+    t1, t2, t3, t4 = st.columns(4)
 
-    st.dataframe(
-        tech,
-        hide_index=True,
-        use_container_width=True
+    with t1:
+        st.markdown("**Python**")
+        st.caption("Programming")
+
+    with t2:
+        st.markdown("**TensorFlow**")
+        st.caption("Deep learning")
+
+    with t3:
+        st.markdown("**NumPy**")
+        st.caption("Numerical processing")
+
+    with t4:
+        st.markdown("**Streamlit**")
+        st.caption("Web application")
+
+    st.markdown("### Development team")
+
+    st.markdown("""
+    **Team Breast Scan AI**
+
+    Army Public School, LBS Marg, Lucknow
+
+    Academic Year: 2026–2027
+    """)
+
+    st.markdown(
+        "[View GitHub Repository](https://github.com/aiexploregroup-source/breast-cancer-classification-aps)"
     )
 
-    st.markdown("### Model configuration")
-    st.write(f"**Input dimensions:** {IMAGE_WIDTH} × {IMAGE_HEIGHT}")
-    st.write(f"**Normalization:** {NORMALIZATION}")
-    st.write(f"**Output mode:** {MODEL_OUTPUT_MODE}")
-    st.write(f"**Model architecture name:** {model.name}")
-
-    st.write("")
-    st.markdown("### Development team")
     st.markdown("""
-    <div class="glass-card">
-        <div class="card-title">Team Breast Scan AI</div>
-        <div class="card-description">
-        Army Public School, LBS Marg, Lucknow<br>
-        Academic Year 2026–2027
-        </div>
+    <div class="disclaimer">
+    This project is a student research demonstration.
+    It has not been established as a clinically validated
+    diagnostic tool. Its outputs must not guide medical decisions.
     </div>
     """, unsafe_allow_html=True)
 
-    st.write("")
-    st.markdown(
-        "[VIEW GITHUB REPOSITORY](https://github.com/aiexploregroup-source/breast-cancer-classification-aps)"
-    )
 
-    disclaimer()
+# =========================================================
+# 13. FOOTER
+# =========================================================
 
-# ============================================================
-# 15. FOOTER
-# ============================================================
 st.markdown("""
 <div class="footer">
-    <strong>BreastScan AI</strong><br>
-    An Educational Artificial Intelligence Project<br>
-    Developed by Team Breast Scan AI · APS LBS Marg, Lucknow<br>
-    © 2026 · All Rights Reserved
+
+    <b>BreastScan AI</b><br>
+
+    Developed by Team Breast Scan AI |
+    APS LBS Marg, Lucknow<br>
+
+    © 2026 · Educational AI Research Project
+
 </div>
 """, unsafe_allow_html=True)
