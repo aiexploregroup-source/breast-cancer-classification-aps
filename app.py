@@ -119,7 +119,7 @@ elif page == "ℹ️ About":
       
     **👩‍💻 Developed by:** Team Breast Scan AI from APS LBS Marg , Lucknow 
     **📅 Year:** 2026  
-    **🔗 GitHub:** [Your GitHub Repo](https://github.com/SwaroopaNekkanti)  
+    **🔗 GitHub:** https://github.com/aiexploregroup-source/breast-cancer-classification-aps  
     """)
 
 # 🔹 Custom Footer
